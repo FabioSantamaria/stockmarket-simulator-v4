@@ -149,13 +149,15 @@ class SimulationService:
         df_copy['return'] = df_copy['value_real'].pct_change().fillna(0)
         mu = df_copy['return'].mean()
         sigma = df_copy['return'].std()
-        last_val = df_copy['value_real'].iloc[-1]
+        
+        # Start from baseline of 100, not actual ending value
+        baseline = 100.0
         
         steps = horizon_years * 12
         paths = np.zeros((steps, simulations))
         
         for i in range(simulations):
-            prices = [last_val]
+            prices = [baseline]
             for _ in range(steps):
                 shock = np.random.normal(mu, sigma)
                 prices.append(prices[-1] * (1 + shock))

@@ -16,19 +16,17 @@ function ForecastChart({ forecasts, results }) {
 
     // Add historical endpoint as starting point
     let historicalEndDate = null;
-    let historicalEndValue = null;
     if (results && results[ticker]) {
       const timeSeries = results[ticker].timeSeries;
       if (timeSeries.length > 0) {
         historicalEndDate = timeSeries[timeSeries.length - 1].date;
-        historicalEndValue = timeSeries[timeSeries.length - 1].valueReal || timeSeries[timeSeries.length - 1].value;
       }
     }
 
-    // Create line from historical end to forecast start
-    if (historicalEndDate && historicalEndValue && dates.length > 0) {
+    // Create line from historical end (baseline 100) to forecast start
+    if (historicalEndDate && dates.length > 0) {
       const connectorDates = [historicalEndDate, dates[0]];
-      const connectorValues = [historicalEndValue, medians[0]];
+      const connectorValues = [100, medians[0]];
       
       plotData.push({
         x: connectorDates,
@@ -74,14 +72,14 @@ function ForecastChart({ forecasts, results }) {
   return (
     <div>
       <p className="forecast-info">
-        Forecast: {horizonYears} years | {simulations.toLocaleString()} simulations | Starting from historical endpoint
+        Forecast: {horizonYears} years | {simulations.toLocaleString()} simulations | Indexed to 100 at forecast start
       </p>
       <PlotChart
         data={plotData}
         layout={{
           title: `Monte Carlo Forecast (${horizonYears} years, ${simulations.toLocaleString()} simulations)`,
           xaxis: { title: 'Date' },
-          yaxis: { title: 'Value' },
+          yaxis: { title: 'Index Value (Base = 100)' },
           hovermode: 'x unified',
         }}
         config={{ responsive: true }}
