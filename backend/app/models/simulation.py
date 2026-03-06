@@ -29,6 +29,7 @@ class TimeSeriesPoint(BaseModel):
     date: datetime
     value: float
     invested: float
+    close: Optional[float] = None
     valueReal: Optional[float] = None
 
 class SimulationResult(BaseModel):

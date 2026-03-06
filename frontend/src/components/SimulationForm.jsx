@@ -258,7 +258,7 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
           disabled={loading || formData.tickers.length === 0}
           className="btn btn-primary"
         >
-          {loading ? 'Running...' : 'Show Data'}
+          {loading ? 'Running...' : 'Run Backtest Simulation'}
         </button>
         <button
           type="button"

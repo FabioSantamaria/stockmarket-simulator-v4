@@ -8,6 +8,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
   const [activeTab, setActiveTab] = useState('nominal');
   const [cpiData, setCpiData] = useState({});
   const [fxData, setFxData] = useState(null);
+  const [priceData, setPriceData] = useState({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -33,6 +34,17 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
         EUR: eurCPI.data?.data || [],
       });
       setFxData(fx.data?.data || []);
+
+      // Extract closing price data from simulation results
+      const prices = {};
+      tickers.forEach((ticker) => {
+        const timeSeries = simulationResults[ticker].timeSeries;
+        prices[ticker] = timeSeries.map((point) => ({
+          date: point.date,
+          price: point.close, // Use actual closing price
+        }));
+      });
+      setPriceData(prices);
     } catch (err) {
       console.error('Failed to fetch additional data:', err);
     } finally {
@@ -169,7 +181,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
             <div className="currency-section">
               <h3>USD Tickers</h3>
               <PlotChart
-                data={investedData ? [...nominalUSDData, investedData] : nominalUSDData}
+                data={[...nominalUSDData, investedData]}
                 layout={{
                   title: 'Nominal Portfolio Values (USD)',
                   xaxis: { title: 'Date' },
@@ -185,7 +197,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
             <div className="currency-section">
               <h3>EUR Tickers</h3>
               <PlotChart
-                data={nominalEURData}
+                data={nominalEURData.concat(investedData ? [investedData] : [])}
                 layout={{
                   title: 'Nominal Portfolio Values (EUR)',
                   xaxis: { title: 'Date' },
@@ -208,7 +220,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
             <div className="currency-section">
               <h3>USD Tickers (US CPI-Adjusted)</h3>
               <PlotChart
-                data={realUSDData}
+                data={[...realUSDData, investedData]}
                 layout={{
                   title: 'Real Portfolio Values (USD) - Adjusted for US Inflation',
                   xaxis: { title: 'Date' },
@@ -224,7 +236,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
             <div className="currency-section">
               <h3>EUR Tickers (Euro Area CPI-Adjusted)</h3>
               <PlotChart
-                data={realEURData}
+                data={realEURData.concat(investedData ? [investedData] : [])}
                 layout={{
                   title: 'Real Portfolio Values (EUR) - Adjusted for Euro Area Inflation',
                   xaxis: { title: 'Date' },
@@ -313,13 +325,57 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
               />
             </div>
           )}
+
+          {usdTickers.length > 0 && (
+            <div className="macro-chart">
+              <h3>USD Index Prices</h3>
+              <PlotChart
+                data={usdTickers.map((ticker) => ({
+                  x: (priceData[ticker] || []).map((d) => d.date),
+                  y: (priceData[ticker] || []).map((d) => d.price),
+                  name: ticker,
+                  type: 'scatter',
+                  mode: 'lines',
+                }))}
+                layout={{
+                  title: 'Closing Prices - USD Tickers',
+                  xaxis: { title: 'Date' },
+                  yaxis: { title: 'Price (USD)' },
+                  hovermode: 'x unified',
+                }}
+                config={{ responsive: true }}
+              />
+            </div>
+          )}
+
+          {eurTickers.length > 0 && (
+            <div className="macro-chart">
+              <h3>EUR Index Prices</h3>
+              <PlotChart
+                data={eurTickers.map((ticker) => ({
+                  x: (priceData[ticker] || []).map((d) => d.date),
+                  y: (priceData[ticker] || []).map((d) => d.price),
+                  name: ticker,
+                  type: 'scatter',
+                  mode: 'lines',
+                }))}
+                layout={{
+                  title: 'Closing Prices - EUR Tickers',
+                  xaxis: { title: 'Date' },
+                  yaxis: { title: 'Price (EUR)' },
+                  hovermode: 'x unified',
+                }}
+                config={{ responsive: true }}
+              />
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === 'forecast' && forecasts && (
         <div className="tab-content">
           <h2>Monte Carlo Forecast (Based on Real Returns)</h2>
-          <ForecastChart forecasts={forecasts.forecasts} />
+          <ForecastChart forecasts={forecasts.forecasts} results={simulationResults} />
         </div>
       )}
     </div>

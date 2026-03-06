@@ -56,7 +56,8 @@ class SimulationService:
                 'date': idx,
                 'value': value,
                 'value_real': value_real,
-                'invested': total_invested
+                'invested': total_invested,
+                'close': row['Close']
             })
         
         return pd.DataFrame(timeline)

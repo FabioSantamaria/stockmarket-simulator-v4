@@ -1,7 +1,7 @@
 import React from 'react';
 import PlotChart from './PlotChart';
 
-function ForecastChart({ forecasts }) {
+function ForecastChart({ forecasts, results }) {
   if (!forecasts) return null;
 
   const tickers = Object.keys(forecasts);
@@ -13,6 +13,33 @@ function ForecastChart({ forecasts }) {
     const medians = forecast.forecast.map((f) => f.median);
     const p10s = forecast.forecast.map((f) => f.p10);
     const p90s = forecast.forecast.map((f) => f.p90);
+
+    // Add historical endpoint as starting point
+    let historicalEndDate = null;
+    let historicalEndValue = null;
+    if (results && results[ticker]) {
+      const timeSeries = results[ticker].timeSeries;
+      if (timeSeries.length > 0) {
+        historicalEndDate = timeSeries[timeSeries.length - 1].date;
+        historicalEndValue = timeSeries[timeSeries.length - 1].valueReal || timeSeries[timeSeries.length - 1].value;
+      }
+    }
+
+    // Create line from historical end to forecast start
+    if (historicalEndDate && historicalEndValue && dates.length > 0) {
+      const connectorDates = [historicalEndDate, dates[0]];
+      const connectorValues = [historicalEndValue, medians[0]];
+      
+      plotData.push({
+        x: connectorDates,
+        y: connectorValues,
+        name: `${ticker} Connection`,
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#999999', width: 1, dash: 'dot' },
+        showlegend: false,
+      });
+    }
 
     plotData.push({
       x: dates,
@@ -47,7 +74,7 @@ function ForecastChart({ forecasts }) {
   return (
     <div>
       <p className="forecast-info">
-        Forecast: {horizonYears} years | {simulations.toLocaleString()} simulations
+        Forecast: {horizonYears} years | {simulations.toLocaleString()} simulations | Starting from historical endpoint
       </p>
       <PlotChart
         data={plotData}

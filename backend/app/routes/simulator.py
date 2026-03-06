@@ -70,7 +70,8 @@ async def simulate(params: SimulationParams) -> SimulationResponse:
                     date=row['date'],
                     value=row['value'],
                     invested=row['invested'],
-                    valueReal=row.get('value_real')
+                    valueReal=row.get('value_real'),
+                    close=row.get('close')
                 )
                 for _, row in simulation_df.iterrows()
             ]
