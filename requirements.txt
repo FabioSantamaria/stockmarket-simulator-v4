@@ -1,0 +1,12 @@
+fastapi>=0.115.8
+uvicorn>=0.30.6
+yfinance>=0.2.52
+pandas>=2.2.3
+setuptools>=70.0.0
+
+#notebook
+jupyterlab>=3.0.0
+ipykernel>=6.0.0
+matplotlib>=3.0.0
+seaborn>=0.11.0
+plotly>=5.0.0
