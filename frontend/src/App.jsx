@@ -21,7 +21,8 @@ function App() {
   const fetchAvailableTickers = async () => {
     try {
       const response = await simulatorAPI.getTickers();
-      setAvailableTickers(response.data.tickers || []);
+      const tickers = response.data.tickers || [];
+      setAvailableTickers(tickers.map((t) => (typeof t === 'string' ? t : t.symbol)));
     } catch (err) {
       console.error('Failed to fetch tickers:', err);
       // Use default tickers if fetch fails

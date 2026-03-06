@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, DollarSign, TrendingUp, BarChart3, Search } from 'lucide-react';
+import { simulatorAPI } from '../api/client';
 
 function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
   const [formData, setFormData] = useState({
@@ -12,10 +13,40 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
     inflation_adjusted: true,
   });
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
   const [forecastParams, setForecastParams] = useState({
     horizon_years: 10,
     simulations: 1000,
   });
+
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (query.length > 0) {
+      try {
+        const response = await simulatorAPI.searchTickers(query);
+        setSearchResults(response.data.results || []);
+        setShowSearchResults(true);
+      } catch (error) {
+        console.error('Search failed:', error);
+      }
+    } else {
+      setShowSearchResults(false);
+    }
+  };
+
+  const handleAddFromSearch = (ticker) => {
+    if (!formData.tickers.includes(ticker.symbol)) {
+      setFormData((prev) => ({
+        ...prev,
+        tickers: [...prev.tickers, ticker.symbol],
+      }));
+    }
+    setSearchQuery('');
+    setShowSearchResults(false);
+  };
 
   const handleTickerToggle = (ticker) => {
     setFormData((prev) => ({
@@ -60,9 +91,40 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
     <form className="simulation-form">
       <h2>Simulation Parameters</h2>
 
+      {/* Search Bar */}
+      <div className="form-section">
+        <label className="form-label">
+          <Search size={16} /> Search Tickers
+        </label>
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Search by ticker or name..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            disabled={loading}
+            className="form-input"
+          />
+          {showSearchResults && searchResults.length > 0 && (
+            <div className="search-results">
+              {searchResults.map((result) => (
+                <div
+                  key={result.symbol}
+                  className="search-result-item"
+                  onClick={() => handleAddFromSearch(result)}
+                >
+                  <div className="result-symbol">{result.symbol}</div>
+                  <div className="result-name">{result.name}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Tickers Section */}
       <div className="form-section">
-        <label className="form-label">📊 Select Indices</label>
+        <label className="form-label">📊 Selected Indices</label>
         <div className="ticker-grid">
           {availableTickers.map((ticker) => (
             <label key={ticker} className="checkbox-label">
@@ -154,16 +216,6 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
           />
           <span>Reinvest Dividends</span>
         </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            name="inflation_adjusted"
-            checked={formData.inflation_adjusted}
-            onChange={handleInputChange}
-            disabled={loading}
-          />
-          <span>Inflation Adjustment</span>
-        </label>
       </div>
 
       {/* Forecast Parameters */}
@@ -206,7 +258,7 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
           disabled={loading || formData.tickers.length === 0}
           className="btn btn-primary"
         >
-          {loading ? 'Running...' : 'Run Simulation'}
+          {loading ? 'Running...' : 'Show Data'}
         </button>
         <button
           type="button"

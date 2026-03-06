@@ -6,22 +6,31 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-TICKER_CURRENCIES = {
-    'SPY': 'USD',
-    'URTH': 'USD',
-    'FEZ': 'USD',
-    '^STOXX50E': 'EUR',
-    'QQQ': 'USD',
-    'DIA': 'USD'
-}
-
-CPI_TICKERS = {
-    'USD': 'CPIAUCSL',
-    'EUR': 'CP0000EZ19M086NEST'
-}
-
 class MarketDataService:
     """Service for fetching and processing market data"""
+    
+    TICKER_CURRENCIES = {
+        'SPY': 'USD',
+        'URTH': 'USD',
+        'FEZ': 'USD',
+        '^STOXX50E': 'EUR',
+        'QQQ': 'USD',
+        'DIA': 'USD'
+    }
+    
+    TICKER_NAMES = {
+        'SPY': 'S&P 500 ETF',
+        'URTH': 'MSCI World ETF',
+        'FEZ': 'EuroStoxx50 ETF',
+        '^STOXX50E': 'EuroStoxx50 Index',
+        'QQQ': 'NASDAQ-100 ETF',
+        'DIA': 'Dow Jones ETF'
+    }
+    
+    CPI_TICKERS = {
+        'USD': 'CPIAUCSL',
+        'EUR': 'CP0000EZ19M086NEST'
+    }
     
     @staticmethod
     def fetch_data(ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -43,7 +52,7 @@ class MarketDataService:
     def fetch_cpi_data(currency: str, start: str, end: str) -> Optional[pd.Series]:
         """Fetch CPI data for a currency"""
         try:
-            cpi_ticker = CPI_TICKERS.get(currency)
+            cpi_ticker = MarketDataService.CPI_TICKERS.get(currency)
             if not cpi_ticker:
                 return None
             
@@ -57,6 +66,30 @@ class MarketDataService:
             return None
     
     @staticmethod
+    def fetch_fx_data(start: str, end: str) -> Optional[pd.Series]:
+        """Fetch EUR/USD exchange rate data"""
+        try:
+            fx_data = yf.Ticker('EURUSD=X').history(start=start, end=end)
+            if fx_data.empty:
+                return None
+            fx_data = fx_data.tz_localize(None)
+            fx_monthly = fx_data.resample('MS').last()['Close']
+            return fx_monthly
+        except Exception as e:
+            print(f"Error fetching FX data: {e}")
+            return None
+    
+    @staticmethod
     def get_ticker_currency(ticker: str) -> str:
         """Get the native currency for a ticker"""
-        return TICKER_CURRENCIES.get(ticker, 'USD')
+        return MarketDataService.TICKER_CURRENCIES.get(ticker, 'USD')
+    
+    @staticmethod
+    def search_tickers(query: str) -> Dict[str, str]:
+        """Search tickers by name or symbol"""
+        query = query.upper()
+        results = {}
+        for ticker, name in MarketDataService.TICKER_NAMES.items():
+            if query in ticker or query in name.upper():
+                results[ticker] = name
+        return results

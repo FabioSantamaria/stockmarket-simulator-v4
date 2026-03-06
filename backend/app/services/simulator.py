@@ -13,7 +13,8 @@ class SimulationService:
         initial: float,
         monthly: float,
         reinvest_div: bool,
-        currency: str
+        currency: str,
+        cpi_data: Optional[pd.Series] = None
     ) -> pd.DataFrame:
         """Simulate investment in a ticker"""
         timeline = []
@@ -40,9 +41,21 @@ class SimulationService:
                 cash += dividend
             
             value = shares * row['Close'] + cash
+            
+            # Calculate real (inflation-adjusted) value
+            value_real = value
+            if cpi_data is not None:
+                try:
+                    cpi_start = cpi_data.iloc[0]
+                    cpi_at_date = cpi_data.loc[idx] if idx in cpi_data.index else cpi_data[cpi_data.index <= idx].iloc[-1] if len(cpi_data[cpi_data.index <= idx]) > 0 else cpi_start
+                    value_real = value * (cpi_start / cpi_at_date)
+                except:
+                    value_real = value
+            
             timeline.append({
                 'date': idx,
                 'value': value,
+                'value_real': value_real,
                 'invested': total_invested
             })
         

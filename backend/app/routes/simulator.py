@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import List
+from typing import List, Dict
 import pandas as pd
 from datetime import datetime
 
@@ -51,7 +51,8 @@ async def simulate(params: SimulationParams) -> SimulationResponse:
                 params.initial_investment,
                 params.monthly_contribution,
                 params.reinvest_dividends,
-                currency
+                currency,
+                cpi_data.get(currency)
             )
             
             # Calculate metrics
@@ -142,7 +143,8 @@ async def forecast(
                 params.initial_investment,
                 params.monthly_contribution,
                 params.reinvest_dividends,
-                currency
+                currency,
+                cpi_data.get(currency)
             )
             
             dates, median, p10, p90 = SimulationService.forecast_monte_carlo(
@@ -177,9 +179,73 @@ async def forecast(
 async def get_available_tickers() -> dict:
     """Get list of available tickers"""
     return {
-        "tickers": list(MarketDataService.TICKER_CURRENCIES.keys()),
-        "currencies": {
-            ticker: MarketDataService.get_ticker_currency(ticker)
+        "tickers": [
+            {
+                "symbol": ticker,
+                "name": MarketDataService.TICKER_NAMES.get(ticker, ticker),
+                "currency": MarketDataService.TICKER_CURRENCIES.get(ticker, 'USD')
+            }
             for ticker in MarketDataService.TICKER_CURRENCIES.keys()
-        }
+        ]
     }
+
+@router.get("/search")
+async def search_tickers(q: str = Query("", min_length=1, max_length=50)) -> Dict:
+    """Search tickers by name or symbol"""
+    if not q:
+        return {"results": []}
+    
+    results = MarketDataService.search_tickers(q)
+    return {
+        "results": [
+            {
+                "symbol": symbol,
+                "name": name,
+                "currency": MarketDataService.TICKER_CURRENCIES.get(symbol, 'USD')
+            }
+            for symbol, name in results.items()
+        ]
+    }
+
+@router.get("/cpi")
+async def get_cpi_data(
+    currency: str = Query("USD", regex="^(USD|EUR)$"),
+    start_date: str = "2010-01-01",
+    end_date: str = "2025-12-01"
+) -> dict:
+    """Get CPI data for a currency"""
+    try:
+        cpi_data = MarketDataService.fetch_cpi_data(currency, start_date, end_date)
+        if cpi_data is None:
+            raise HTTPException(status_code=404, detail=f"CPI data not found for {currency}")
+        
+        return {
+            "currency": currency,
+            "data": [
+                {"date": date.strftime("%Y-%m-%d"), "value": float(value)}
+                for date, value in cpi_data.items()
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch CPI data: {str(e)}")
+
+@router.get("/fx")
+async def get_fx_data(
+    start_date: str = "2010-01-01",
+    end_date: str = "2025-12-01"
+) -> dict:
+    """Get EUR/USD exchange rate data"""
+    try:
+        fx_data = MarketDataService.fetch_fx_data(start_date, end_date)
+        if fx_data is None:
+            raise HTTPException(status_code=404, detail="FX data not found")
+        
+        return {
+            "pair": "EURUSD",
+            "data": [
+                {"date": date.strftime("%Y-%m-%d"), "rate": float(value)}
+                for date, value in fx_data.items()
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch FX data: {str(e)}")

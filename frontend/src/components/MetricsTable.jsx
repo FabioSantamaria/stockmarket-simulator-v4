@@ -1,7 +1,8 @@
 import React from 'react';
 
-function MetricsTable({ results }) {
-  const tickers = Object.keys(results);
+function MetricsTable({ results, tickers, real = false }) {
+  // Use provided tickers or all tickers
+  const tickersToShow = tickers || Object.keys(results);
 
   return (
     <div className="metrics-table-container">
@@ -18,20 +19,26 @@ function MetricsTable({ results }) {
           </tr>
         </thead>
         <tbody>
-          {tickers.map((ticker) => {
+          {tickersToShow.map((ticker) => {
             const result = results[ticker];
             const metrics = result.metrics;
+            
+            // Use real metrics if requested, otherwise use nominal
+            const finalValue = real ? metrics.FinalValueReal : metrics.FinalValue;
+            const totalReturn = real ? metrics.TotalReturnReal : metrics.TotalReturn;
+            const cagr = real ? metrics.CAGRReal : metrics.CAGR;
+            
             return (
               <tr key={ticker}>
                 <td className="ticker-cell">{ticker}</td>
                 <td>{metrics.Currency}</td>
                 <td>${metrics.TotalInvested.toLocaleString('en-US', { maximumFractionDigits: 2 })}</td>
-                <td>${metrics.FinalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</td>
+                <td>${finalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</td>
                 <td className="return-cell">
-                  {(metrics.TotalReturn * 100).toFixed(2)}%
+                  {(totalReturn * 100).toFixed(2)}%
                 </td>
                 <td className="cagr-cell">
-                  {(metrics.CAGR * 100).toFixed(2)}%
+                  {(cagr * 100).toFixed(2)}%
                 </td>
                 <td className="drawdown-cell">
                   {(metrics.MaxDrawdown * 100).toFixed(2)}%
