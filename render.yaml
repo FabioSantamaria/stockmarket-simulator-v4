@@ -2,7 +2,6 @@ services:
   - type: web
     name: stock-simulator-backend
     runtime: python
-    pythonVersion: 3.13
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000
     envVars:
@@ -17,8 +16,9 @@ services:
     envVars:
       - key: VITE_API_URL
         value: /api
-    routes:
-      - path: /api
-        service: stock-simulator-backend
-      - path: /
-        service: stock-simulator-frontend
+
+routes:
+  - path: /api
+    service: stock-simulator-backend
+  - path: /
+    service: stock-simulator-frontend
