@@ -175,7 +175,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
       {activeTab === 'nominal' && (
         <div className="tab-content">
           <h2>Nominal Portfolio Growth</h2>
-          <p className="chart-description">Unadjusted portfolio values in original currency</p>
+          <p className="chart-description">Unadjusted portfolio values in original currency, including dividend accumulation</p>
           
           {usdTickers.length > 0 && (
             <div className="currency-section">
@@ -214,7 +214,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
       {activeTab === 'real' && (
         <div className="tab-content">
           <h2>Real (Inflation-Adjusted) Growth</h2>
-          <p className="chart-description">Portfolio values adjusted for inflation using local CPI</p>
+          <p className="chart-description">Portfolio values adjusted for inflation using local CPI and including dividend accumulation</p>
           
           {usdTickers.length > 0 && (
             <div className="currency-section">
@@ -329,6 +329,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
           {usdTickers.length > 0 && (
             <div className="macro-chart">
               <h3>USD Index Prices</h3>
+              <p className="chart-description">Historical closing prices (price appreciation only, excludes dividends)</p>
               <PlotChart
                 data={usdTickers.map((ticker) => ({
                   x: (priceData[ticker] || []).map((d) => d.date),
@@ -351,6 +352,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
           {eurTickers.length > 0 && (
             <div className="macro-chart">
               <h3>EUR Index Prices</h3>
+              <p className="chart-description">Historical closing prices (price appreciation only, excludes dividends)</p>
               <PlotChart
                 data={eurTickers.map((ticker) => ({
                   x: (priceData[ticker] || []).map((d) => d.date),
