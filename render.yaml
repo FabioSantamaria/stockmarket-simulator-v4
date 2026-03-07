@@ -1,18 +1,9 @@
 services:
   - type: web
-    name: stock-simulator-backend
-    runtime: python
-    buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000
+    name: stock-simulator
+    runtime: docker
+    region: oregon
+    plan: free
     envVars:
       - key: ALLOWED_ORIGINS
         value: https://${RENDER_SERVICE_NAME}.onrender.com,http://localhost:3000
-
-  - type: web
-    name: stock-simulator-frontend
-    runtime: node
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm install -g serve && serve -s dist -l 3000
-    envVars:
-      - key: VITE_API_URL
-        value: /api
