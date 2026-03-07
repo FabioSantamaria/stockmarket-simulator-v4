@@ -16,9 +16,3 @@ services:
     envVars:
       - key: VITE_API_URL
         value: /api
-
-routes:
-  - path: /api
-    service: stock-simulator-backend
-  - path: /
-    service: stock-simulator-frontend
