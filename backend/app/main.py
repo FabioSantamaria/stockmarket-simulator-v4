@@ -30,7 +30,7 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
-@app.get("/")
+@app.get("/api")
 async def root():
     """API root endpoint"""
     return {
@@ -40,6 +40,6 @@ async def root():
     }
 
 # Serve static files (frontend) - must be last
-static_dir = Path(__file__).parent.parent.parent / "static"
+static_dir = Path("/app/static")
 if static_dir.exists():
     app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="frontend")
