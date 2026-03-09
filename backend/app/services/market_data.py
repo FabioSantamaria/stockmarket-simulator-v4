@@ -83,8 +83,41 @@ class MarketDataService:
     
     @staticmethod
     def get_ticker_currency(ticker: str) -> str:
-        """Get the native currency for a ticker"""
-        return MarketDataService.TICKER_CURRENCIES.get(ticker, 'USD')
+        """Get the native currency for a ticker dynamically from Yahoo Finance"""
+        try:
+            # Try to get currency from Yahoo Finance ticker info
+            ticker_obj = yf.Ticker(ticker)
+            info = ticker_obj.info
+            
+            # Check multiple possible currency fields
+            currency = (
+                info.get('financialCurrency') or  # Primary field for reporting currency
+                info.get('currency') or          # Trading currency
+                info.get('quoteType', {}).get('currency')
+            )
+            
+            if currency:
+                return currency.upper()
+                
+            # Fallback: try to detect from market data
+            try:
+                data = ticker_obj.history(period="1d")
+                if not data.empty:
+                    # Check if the price format suggests EUR (comma decimal) vs USD (point decimal)
+                    last_price = data['Close'].iloc[-1]
+                    # This is a heuristic - not perfect but better than hardcoded
+                    if last_price > 1000:  # European stocks often trade in higher numbers
+                        return 'EUR'
+            except:
+                pass
+                
+            # Final fallback to hardcoded mapping
+            return MarketDataService.TICKER_CURRENCIES.get(ticker, 'USD')
+            
+        except Exception as e:
+            print(f"Error detecting currency for {ticker}: {e}")
+            # Fallback to hardcoded mapping
+            return MarketDataService.TICKER_CURRENCIES.get(ticker, 'USD')
     
     @staticmethod
     def search_tickers(query: str) -> Dict[str, str]:

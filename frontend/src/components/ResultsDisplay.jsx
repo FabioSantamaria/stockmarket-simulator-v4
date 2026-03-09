@@ -22,23 +22,45 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
     const params = results.parameters;
     
     try {
-      // Fetch CPI data for both currencies
-      const [usdCPI, eurCPI, fx] = await Promise.all([
-        simulatorAPI.getCPIData('USD', params.start_date, params.end_date),
-        simulatorAPI.getCPIData('EUR', params.start_date, params.end_date),
-        simulatorAPI.getFXData(params.start_date, params.end_date),
-      ]);
-
-      setCpiData({
-        USD: usdCPI.data?.data || [],
-        EUR: eurCPI.data?.data || [],
+      // Extract unique currencies from results
+      const tickerCurrencies = {};
+      Object.keys(results.results).forEach(ticker => {
+        tickerCurrencies[ticker] = results.results[ticker].currency || 'USD';
       });
-      setFxData(fx.data?.data || []);
+      
+      const uniqueCurrencies = [...new Set(Object.values(tickerCurrencies))];
+      
+      // Fetch CPI data for all detected currencies
+      const cpiPromises = uniqueCurrencies.map(currency => 
+        simulatorAPI.getCPIData(currency, params.start_date, params.end_date)
+          .then(response => ({ currency, data: response.data?.data || [] }))
+          .catch(() => ({ currency, data: [] }))
+      );
+      
+      // Fetch FX data if we have multiple currencies
+      let fxData = [];
+      if (uniqueCurrencies.length > 1) {
+        try {
+          const fxResponse = await simulatorAPI.getFXData(params.start_date, params.end_date);
+          fxData = fxResponse.data?.data || [];
+        } catch (err) {
+          console.error('Failed to fetch FX data:', err);
+        }
+      }
+      
+      const cpiResults = await Promise.all(cpiPromises);
+      const cpiDataMap = {};
+      cpiResults.forEach(({ currency, data }) => {
+        cpiDataMap[currency] = data;
+      });
+      
+      setCpiData(cpiDataMap);
+      setFxData(fxData);
 
       // Extract closing price data from simulation results
       const prices = {};
-      tickers.forEach((ticker) => {
-        const timeSeries = simulationResults[ticker].timeSeries;
+      Object.keys(results.results).forEach((ticker) => {
+        const timeSeries = results.results[ticker].timeSeries;
         prices[ticker] = timeSeries.map((point) => ({
           date: point.date,
           price: point.close, // Use actual closing price
@@ -57,9 +79,15 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
   const { results: simulationResults } = results;
   const tickers = Object.keys(simulationResults);
 
-  // Separate tickers by currency
-  const usdTickers = tickers.filter((t) => simulationResults[t].currency === 'USD');
-  const eurTickers = tickers.filter((t) => simulationResults[t].currency === 'EUR');
+  // Group tickers by currency dynamically
+  const tickersByCurrency = {};
+  tickers.forEach(ticker => {
+    const currency = simulationResults[ticker].currency || 'USD';
+    if (!tickersByCurrency[currency]) {
+      tickersByCurrency[currency] = [];
+    }
+    tickersByCurrency[currency].push(ticker);
+  });
 
   // Helper function to create plot data
   const createPlotData = (tickerList, valueKey = 'value') => {
@@ -68,27 +96,27 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
       return {
         x: data.map((d) => d.date),
         y: data.map((d) => d[valueKey]),
-        name: ticker,
+        name: `${ticker} (${simulationResults[ticker].currency})`,
         type: 'scatter',
         mode: 'lines',
       };
     });
   };
 
-  // Nominal plots by currency
-  const nominalUSDData = createPlotData(usdTickers, 'value');
-  const nominalEURData = createPlotData(eurTickers, 'value');
+  // Create plot data for each currency
+  const nominalPlotData = {};
+  const realPlotData = {};
+  Object.keys(tickersByCurrency).forEach(currency => {
+    nominalPlotData[currency] = createPlotData(tickersByCurrency[currency], 'value');
+    realPlotData[currency] = createPlotData(tickersByCurrency[currency], 'valueReal');
+  });
 
-  // Real plots by currency
-  const realUSDData = createPlotData(usdTickers, 'valueReal');
-  const realEURData = createPlotData(eurTickers, 'valueReal');
-
-  // Invested data (use first USD ticker or first ticker)
-  const investedTicker = usdTickers.length > 0 ? usdTickers[0] : eurTickers[0];
-  const investedData = investedTicker
+  // Invested data (use first ticker)
+  const firstTicker = tickers[0];
+  const investedData = firstTicker
     ? {
-        x: simulationResults[investedTicker].timeSeries.map((d) => d.date),
-        y: simulationResults[investedTicker].timeSeries.map((d) => d.invested),
+        x: simulationResults[firstTicker].timeSeries.map((d) => d.date),
+        y: simulationResults[firstTicker].timeSeries.map((d) => d.invested),
         name: 'Total Invested',
         type: 'scatter',
         mode: 'lines',
@@ -96,26 +124,19 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
       }
     : null;
 
-  // Prepare CPI plot data
+  // Prepare CPI plot data dynamically
   const cpiPlotData = [];
-  if (cpiData.USD && cpiData.USD.length > 0) {
-    cpiPlotData.push({
-      x: cpiData.USD.map((d) => d.date),
-      y: cpiData.USD.map((d) => d.value),
-      name: 'US CPI',
-      type: 'scatter',
-      mode: 'lines',
-    });
-  }
-  if (cpiData.EUR && cpiData.EUR.length > 0) {
-    cpiPlotData.push({
-      x: cpiData.EUR.map((d) => d.date),
-      y: cpiData.EUR.map((d) => d.value),
-      name: 'Euro Area CPI',
-      type: 'scatter',
-      mode: 'lines',
-    });
-  }
+  Object.keys(cpiData).forEach(currency => {
+    if (cpiData[currency] && cpiData[currency].length > 0) {
+      cpiPlotData.push({
+        x: cpiData[currency].map((d) => d.date),
+        y: cpiData[currency].map((d) => d.value),
+        name: `${currency} CPI`,
+        type: 'scatter',
+        mode: 'lines',
+      });
+    }
+  });
 
   // Prepare FX plot data
   const fxPlotData = fxData && fxData.length > 0 ? [
@@ -177,37 +198,21 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
           <h2>Nominal Portfolio Growth</h2>
           <p className="chart-description">Unadjusted portfolio values in original currency, including dividend accumulation</p>
           
-          {usdTickers.length > 0 && (
-            <div className="currency-section">
-              <h3>USD Tickers</h3>
+          {Object.keys(tickersByCurrency).map(currency => (
+            <div key={currency} className="currency-section">
+              <h3>{currency} Tickers</h3>
               <PlotChart
-                data={[...nominalUSDData, investedData]}
+                data={[...nominalPlotData[currency], ...(investedData && tickersByCurrency[currency].includes(firstTicker) ? [investedData] : [])]}
                 layout={{
-                  title: 'Nominal Portfolio Values (USD)',
+                  title: `Nominal Portfolio Values (${currency})`,
                   xaxis: { title: 'Date' },
-                  yaxis: { title: 'Value (USD)' },
+                  yaxis: { title: `Value (${currency})` },
                   hovermode: 'x unified',
                 }}
                 config={{ responsive: true }}
               />
             </div>
-          )}
-
-          {eurTickers.length > 0 && (
-            <div className="currency-section">
-              <h3>EUR Tickers</h3>
-              <PlotChart
-                data={nominalEURData.concat(investedData ? [investedData] : [])}
-                layout={{
-                  title: 'Nominal Portfolio Values (EUR)',
-                  xaxis: { title: 'Date' },
-                  yaxis: { title: 'Value (EUR)' },
-                  hovermode: 'x unified',
-                }}
-                config={{ responsive: true }}
-              />
-            </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -216,37 +221,21 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
           <h2>Real (Inflation-Adjusted) Growth</h2>
           <p className="chart-description">Portfolio values adjusted for inflation using local CPI and including dividend accumulation</p>
           
-          {usdTickers.length > 0 && (
-            <div className="currency-section">
-              <h3>USD Tickers (US CPI-Adjusted)</h3>
+          {Object.keys(tickersByCurrency).map(currency => (
+            <div key={currency} className="currency-section">
+              <h3>{currency} Tickers ({currency} CPI-Adjusted)</h3>
               <PlotChart
-                data={[...realUSDData, investedData]}
+                data={[...realPlotData[currency], ...(investedData && tickersByCurrency[currency].includes(firstTicker) ? [investedData] : [])]}
                 layout={{
-                  title: 'Real Portfolio Values (USD) - Adjusted for US Inflation',
+                  title: `Real Portfolio Values (${currency}, CPI-Adjusted)`,
                   xaxis: { title: 'Date' },
-                  yaxis: { title: 'Value (Inflation-Adjusted USD)' },
+                  yaxis: { title: `Value (${currency}, Inflation-Adjusted)` },
                   hovermode: 'x unified',
                 }}
                 config={{ responsive: true }}
               />
             </div>
-          )}
-
-          {eurTickers.length > 0 && (
-            <div className="currency-section">
-              <h3>EUR Tickers (Euro Area CPI-Adjusted)</h3>
-              <PlotChart
-                data={realEURData.concat(investedData ? [investedData] : [])}
-                layout={{
-                  title: 'Real Portfolio Values (EUR) - Adjusted for Euro Area Inflation',
-                  xaxis: { title: 'Date' },
-                  yaxis: { title: 'Value (Inflation-Adjusted EUR)' },
-                  hovermode: 'x unified',
-                }}
-                config={{ responsive: true }}
-              />
-            </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -254,19 +243,12 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
         <div className="tab-content">
           <h2>Investment Metrics (Nominal)</h2>
           
-          {usdTickers.length > 0 && (
-            <div className="metrics-section">
-              <h3>USD Tickers</h3>
-              <MetricsTable results={simulationResults} tickers={usdTickers} />
+          {Object.keys(tickersByCurrency).map(currency => (
+            <div key={currency} className="metrics-section">
+              <h3>{currency} Tickers</h3>
+              <MetricsTable results={simulationResults} tickers={tickersByCurrency[currency]} />
             </div>
-          )}
-
-          {eurTickers.length > 0 && (
-            <div className="metrics-section">
-              <h3>EUR Tickers</h3>
-              <MetricsTable results={simulationResults} tickers={eurTickers} />
-            </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -274,19 +256,12 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
         <div className="tab-content">
           <h2>Investment Metrics (Inflation-Adjusted)</h2>
           
-          {usdTickers.length > 0 && (
-            <div className="metrics-section">
-              <h3>USD Tickers (Real Returns)</h3>
-              <MetricsTable results={simulationResults} tickers={usdTickers} real={true} />
+          {Object.keys(tickersByCurrency).map(currency => (
+            <div key={currency} className="metrics-section">
+              <h3>{currency} Tickers (Real Returns)</h3>
+              <MetricsTable results={simulationResults} tickers={tickersByCurrency[currency]} real={true} />
             </div>
-          )}
-
-          {eurTickers.length > 0 && (
-            <div className="metrics-section">
-              <h3>EUR Tickers (Real Returns)</h3>
-              <MetricsTable results={simulationResults} tickers={eurTickers} real={true} />
-            </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -326,12 +301,12 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
             </div>
           )}
 
-          {usdTickers.length > 0 && (
-            <div className="macro-chart">
-              <h3>USD Index Prices</h3>
+          {Object.keys(tickersByCurrency).map(currency => (
+            <div key={currency} className="macro-chart">
+              <h3>{currency} Index Prices</h3>
               <p className="chart-description">Historical closing prices (price appreciation only, excludes dividends)</p>
               <PlotChart
-                data={usdTickers.map((ticker) => ({
+                data={tickersByCurrency[currency].map((ticker) => ({
                   x: (priceData[ticker] || []).map((d) => d.date),
                   y: (priceData[ticker] || []).map((d) => d.price),
                   name: ticker,
@@ -339,38 +314,15 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
                   mode: 'lines',
                 }))}
                 layout={{
-                  title: 'Closing Prices - USD Tickers',
+                  title: `Closing Prices - ${currency} Tickers`,
                   xaxis: { title: 'Date' },
-                  yaxis: { title: 'Price (USD)' },
+                  yaxis: { title: `Price (${currency})` },
                   hovermode: 'x unified',
                 }}
                 config={{ responsive: true }}
               />
             </div>
-          )}
-
-          {eurTickers.length > 0 && (
-            <div className="macro-chart">
-              <h3>EUR Index Prices</h3>
-              <p className="chart-description">Historical closing prices (price appreciation only, excludes dividends)</p>
-              <PlotChart
-                data={eurTickers.map((ticker) => ({
-                  x: (priceData[ticker] || []).map((d) => d.date),
-                  y: (priceData[ticker] || []).map((d) => d.price),
-                  name: ticker,
-                  type: 'scatter',
-                  mode: 'lines',
-                }))}
-                layout={{
-                  title: 'Closing Prices - EUR Tickers',
-                  xaxis: { title: 'Date' },
-                  yaxis: { title: 'Price (EUR)' },
-                  hovermode: 'x unified',
-                }}
-                config={{ responsive: true }}
-              />
-            </div>
-          )}
+          ))}
         </div>
       )}
 
