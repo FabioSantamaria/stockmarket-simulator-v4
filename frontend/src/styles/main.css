@@ -120,6 +120,72 @@ body {
   font-size: 0.95rem;
 }
 
+.tooltip {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-left: 0.5rem;
+}
+
+.selected-tickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  box-shadow: var(--shadow);
+  transition: all 0.2s;
+}
+
+.ticker-item:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.ticker-symbol {
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.9rem;
+}
+
+.remove-ticker-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.remove-ticker-btn:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.remove-ticker-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.no-tickers {
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 1rem 0;
+}
+
 .form-input {
   width: 100%;
   padding: 0.75rem;

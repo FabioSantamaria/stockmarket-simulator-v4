@@ -14,7 +14,7 @@ export const simulatorAPI = {
       params: { horizon_years: horizonYears, simulations },
     }),
   getTickers: () => api.get('/tickers'),
-  searchTickers: (query) => api.get('/search', { params: { q: query } }),
+  searchTickers: (query) => api.get('/search-tickers', { params: { query } }),
   getCPIData: (currency, startDate, endDate) =>
     api.get('/cpi', { params: { currency, start_date: startDate, end_date: endDate } }),
   getFXData: (startDate, endDate) =>

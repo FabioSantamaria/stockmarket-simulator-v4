@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, DollarSign, TrendingUp, BarChart3, Search } from 'lucide-react';
+import { Calendar, DollarSign, TrendingUp, BarChart3, Search, X } from 'lucide-react';
 import { simulatorAPI } from '../api/client';
 
-function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
+function SimulationForm({ onSimulate, onForecast, loading }) {
   const [formData, setFormData] = useState({
     tickers: ['SPY', 'QQQ', 'DIA'],
     start_date: '2010-01-01',
@@ -48,12 +48,10 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
     setShowSearchResults(false);
   };
 
-  const handleTickerToggle = (ticker) => {
+  const handleRemoveTicker = (tickerToRemove) => {
     setFormData((prev) => ({
       ...prev,
-      tickers: prev.tickers.includes(ticker)
-        ? prev.tickers.filter((t) => t !== ticker)
-        : [...prev.tickers, ticker],
+      tickers: prev.tickers.filter(ticker => ticker !== tickerToRemove),
     }));
   };
 
@@ -95,11 +93,12 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
       <div className="form-section">
         <label className="form-label">
           <Search size={16} /> Search Tickers
+          <span className="tooltip">💡 Try: AAPL, MSFT, GOOGL, TSLA, NVDA, JPM, JNJ</span>
         </label>
         <div className="search-container">
           <input
             type="text"
-            placeholder="Search by ticker or name..."
+            placeholder="Search by ticker or name... (e.g., Apple, Microsoft, Google)"
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             disabled={loading}
@@ -124,19 +123,26 @@ function SimulationForm({ availableTickers, onSimulate, onForecast, loading }) {
 
       {/* Tickers Section */}
       <div className="form-section">
-        <label className="form-label">📊 Selected Indices</label>
-        <div className="ticker-grid">
-          {availableTickers.map((ticker) => (
-            <label key={ticker} className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={formData.tickers.includes(ticker)}
-                onChange={() => handleTickerToggle(ticker)}
-                disabled={loading}
-              />
-              <span>{ticker}</span>
-            </label>
-          ))}
+        <label className="form-label">📊 Selected Tickers</label>
+        <div className="selected-tickers">
+          {formData.tickers.length === 0 ? (
+            <p className="no-tickers">No tickers selected. Use the search bar above to add tickers.</p>
+          ) : (
+            formData.tickers.map((ticker) => (
+              <div key={ticker} className="ticker-item">
+                <span className="ticker-symbol">{ticker}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTicker(ticker)}
+                  disabled={loading}
+                  className="remove-ticker-btn"
+                  title="Remove ticker"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

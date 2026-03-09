@@ -250,3 +250,22 @@ async def get_fx_data(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch FX data: {str(e)}")
+
+@router.get("/search-tickers")
+async def search_tickers(query: str = Query(..., description="Search query for ticker symbols or company names")):
+    """
+    Search for tickers by symbol or company name.
+    
+    Returns a list of matching tickers with their descriptions.
+    """
+    try:
+        results = MarketDataService.search_tickers(query)
+        return {
+            "query": query,
+            "results": [
+                {"symbol": symbol, "name": name}
+                for symbol, name in results.items()
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to search tickers: {str(e)}")

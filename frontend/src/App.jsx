@@ -12,23 +12,6 @@ function App() {
   const [forecasts, setForecasts] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [availableTickers, setAvailableTickers] = useState([]);
-
-  React.useEffect(() => {
-    fetchAvailableTickers();
-  }, []);
-
-  const fetchAvailableTickers = async () => {
-    try {
-      const response = await simulatorAPI.getTickers();
-      const tickers = response.data.tickers || [];
-      setAvailableTickers(tickers.map((t) => (typeof t === 'string' ? t : t.symbol)));
-    } catch (err) {
-      console.error('Failed to fetch tickers:', err);
-      // Use default tickers if fetch fails
-      setAvailableTickers(['SPY', 'QQQ', 'DIA', 'URTH', 'FEZ', '^STOXX50E']);
-    }
-  };
 
   const handleSimulate = async (params) => {
     setLoading(true);
@@ -78,7 +61,6 @@ function App() {
           <div className="grid">
             <div className="sidebar">
               <SimulationForm
-                availableTickers={availableTickers}
                 onSimulate={handleSimulate}
                 onForecast={handleForecast}
                 loading={loading}
