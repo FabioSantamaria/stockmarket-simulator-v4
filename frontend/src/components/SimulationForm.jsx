@@ -224,6 +224,18 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
         </label>
       </div>
 
+      {/* Backtest Simulation Button */}
+      <div className="form-section">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading || formData.tickers.length === 0}
+          className="btn btn-primary"
+        >
+          {loading ? 'Running...' : 'Run Backtest Simulation'}
+        </button>
+      </div>
+
       {/* Forecast Parameters */}
       <div className="form-section">
         <h3>Monte Carlo Forecast</h3>
@@ -258,14 +270,6 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
 
       {/* Buttons */}
       <div className="form-buttons">
-        <button
-          type="submit"
-          onClick={handleSubmit}
-          disabled={loading || formData.tickers.length === 0}
-          className="btn btn-primary"
-        >
-          {loading ? 'Running...' : 'Run Backtest Simulation'}
-        </button>
         <button
           type="button"
           onClick={handleForecast}

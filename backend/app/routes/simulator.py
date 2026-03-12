@@ -107,7 +107,8 @@ async def simulate(params: SimulationParams) -> SimulationResponse:
 async def forecast(
     params: SimulationParams,
     horizon_years: int = Query(10, ge=1, le=50),
-    simulations: int = Query(1000, ge=100, le=10000)
+    simulations: int = Query(1000, ge=100, le=10000),
+    compare_dividends: bool = Query(False, description="Compare with/without dividend reinvestment")
 ) -> dict:
     """
     Run a Monte Carlo forecast based on historical returns.
@@ -131,14 +132,16 @@ async def forecast(
                 currency, params.start_date, params.end_date
             )
         
-        # Run forecasts
+        # Run forecasts for both scenarios if requested
         forecasts = {}
         for ticker in params.tickers:
             if market_data[ticker].empty:
                 continue
             
             currency = ticker_currencies[ticker]
-            simulation_df = SimulationService.simulate_investment(
+            
+            # Scenario 1: With dividend reinvestment (original behavior)
+            simulation_df_with_dividends = SimulationService.simulate_investment(
                 ticker,
                 market_data[ticker],
                 params.initial_investment,
@@ -148,29 +151,63 @@ async def forecast(
                 cpi_data.get(currency)
             )
             
-            dates, median, p10, p90 = SimulationService.forecast_monte_carlo(
-                simulation_df,
+            dates_with, median_with, p10_with, p90_with = SimulationService.forecast_monte_carlo(
+                simulation_df_with_dividends,
                 horizon_years,
                 simulations,
-                params.inflation_adjusted,
+                True,  # Use real returns
                 cpi_data.get(currency)
             )
             
-            forecast_points = [
+            forecast_points_with = [
                 ForecastPoint(date=d, median=m, p10=p, p90=q)
-                for d, m, p, q in zip(dates, median, p10, p90)
+                for d, m, p, q in zip(dates_with, median_with, p10_with, p90_with)
             ]
             
-            forecasts[ticker] = ForecastResult(
-                ticker=ticker,
-                forecast=forecast_points,
-                horizonYears=horizon_years,
-                simulations=simulations
+            # Scenario 2: Without dividend reinvestment
+            simulation_df_without_dividends = SimulationService.simulate_investment(
+                ticker,
+                market_data[ticker],
+                params.initial_investment,
+                params.monthly_contribution,
+                False,  # No dividend reinvestment
+                currency,
+                cpi_data.get(currency)
             )
+            
+            dates_without, median_without, p10_without, p90_without = SimulationService.forecast_monte_carlo(
+                simulation_df_without_dividends,
+                horizon_years,
+                simulations,
+                True,  # Use real returns
+                cpi_data.get(currency)
+            )
+            
+            forecast_points_without = [
+                ForecastPoint(date=d, median=m, p10=p, p90=q)
+                for d, m, p, q in zip(dates_without, median_without, p10_without, p90_without)
+            ]
+            
+            if compare_dividends:
+                forecasts[ticker] = ForecastResult(
+                    ticker=ticker,
+                    forecast=forecast_points_with,
+                    forecast_without_dividends=forecast_points_without,
+                    horizonYears=horizon_years,
+                    simulations=simulations
+                )
+            else:
+                forecasts[ticker] = ForecastResult(
+                    ticker=ticker,
+                    forecast=forecast_points_with,
+                    horizonYears=horizon_years,
+                    simulations=simulations
+                )
         
         return {
             "forecasts": forecasts,
-            "parameters": params.dict()
+            "parameters": params.dict(),
+            "compare_dividends": compare_dividends
         }
     
     except Exception as e:

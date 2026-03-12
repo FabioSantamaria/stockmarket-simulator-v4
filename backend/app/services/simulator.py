@@ -128,7 +128,7 @@ class SimulationService:
         simulations: int = 1000,
         inflation_adjusted: bool = False,
         cpi_data: Optional[pd.Series] = None
-    ) -> Tuple[list, list, list, list]:
+    ) -> Tuple[list, list, list]:
         """Run Monte Carlo simulation"""
         df_copy = df.copy()
         
@@ -150,8 +150,8 @@ class SimulationService:
         mu = df_copy['return'].mean()
         sigma = df_copy['return'].std()
         
-        # Start from baseline of 100, not actual ending value
-        baseline = 100.0
+        # Start all simulations from same baseline of 1.0 (normalized)
+        baseline = 1.0
         
         steps = horizon_years * 12
         paths = np.zeros((steps, simulations))

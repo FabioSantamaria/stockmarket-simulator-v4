@@ -35,7 +35,7 @@ function App() {
     setError(null);
 
     try {
-      const response = await simulatorAPI.forecast(params, horizonYears, simulations);
+      const response = await simulatorAPI.forecast(params, horizonYears, simulations, true);
       setForecasts(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'An error occurred during forecast');

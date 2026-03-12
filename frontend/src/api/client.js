@@ -9,9 +9,9 @@ const api = axios.create({
 
 export const simulatorAPI = {
   simulate: (params) => api.post('/simulate', params),
-  forecast: (params, horizonYears = 10, simulations = 1000) =>
+  forecast: (params, horizonYears = 10, simulations = 1000, compareDividends = false) =>
     api.post('/forecast', params, {
-      params: { horizon_years: horizonYears, simulations },
+      params: { horizon_years: horizonYears, simulations, compare_dividends: compareDividends },
     }),
   getTickers: () => api.get('/tickers'),
   searchTickers: (query) => api.get('/search-tickers', { params: { query } }),

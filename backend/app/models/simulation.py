@@ -52,8 +52,9 @@ class ForecastPoint(BaseModel):
     p90: float
 
 class ForecastResult(BaseModel):
-    """Forecast results for a ticker"""
+    """Complete forecast result for a ticker"""
     ticker: str
     forecast: List[ForecastPoint]
+    forecast_without_dividends: Optional[List[ForecastPoint]] = None
     horizonYears: int
     simulations: int
