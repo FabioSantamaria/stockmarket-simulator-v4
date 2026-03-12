@@ -10,7 +10,7 @@ class SimulationParams(BaseModel):
     initial_investment: float = Field(default=10000, ge=0, description="Initial lump sum investment")
     monthly_contribution: float = Field(default=0, ge=0, description="Monthly contribution amount")
     reinvest_dividends: bool = Field(default=True, description="Whether to reinvest dividends")
-    inflation_adjusted: bool = Field(default=True, description="Whether to adjust for inflation")
+    inflation_adjusted: Optional[bool] = Field(default=False, description="Whether to adjust for inflation")
 
 class MetricsData(BaseModel):
     """Calculated metrics for a ticker"""

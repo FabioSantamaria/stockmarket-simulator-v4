@@ -13,33 +13,25 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleSimulate = async (params) => {
+  const handleSimulate = async (mode, params, horizonYears, simulations, lookbackYears) => {
     setLoading(true);
     setError(null);
     setResults(null);
     setForecasts(null);
 
     try {
-      const response = await simulatorAPI.simulate(params);
-      setResults(response.data);
+      if (mode === 'backtest') {
+        const response = await simulatorAPI.simulate(params);
+        setResults(response.data);
+      } else {
+        console.log(`Starting Monte Carlo with ${simulations} simulations, ${horizonYears} year horizon, ${lookbackYears} year lookback`);
+        const response = await simulatorAPI.forecast(params, horizonYears, simulations, lookbackYears, true);
+        console.log(`Monte Carlo completed in ${response.data.execution_time_seconds} seconds`);
+        setForecasts(response.data);
+      }
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'An error occurred during simulation');
       console.error('Simulation error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleForecast = async (params, horizonYears, simulations) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await simulatorAPI.forecast(params, horizonYears, simulations, true);
-      setForecasts(response.data);
-    } catch (err) {
-      setError(err.response?.data?.detail || err.message || 'An error occurred during forecast');
-      console.error('Forecast error:', err);
     } finally {
       setLoading(false);
     }
@@ -62,7 +54,6 @@ function App() {
             <div className="sidebar">
               <SimulationForm
                 onSimulate={handleSimulate}
-                onForecast={handleForecast}
                 loading={loading}
               />
             </div>
@@ -73,10 +64,15 @@ function App() {
                 <ResultsDisplay
                   results={results}
                   forecasts={forecasts}
-                  onForecast={(params) => handleForecast(params, 10, 1000)}
                 />
               )}
-              {!loading && !results && (
+              {forecasts && !results && (
+                <ResultsDisplay
+                  results={null}
+                  forecasts={forecasts}
+                />
+              )}
+              {!loading && !results && !forecasts && (
                 <div className="empty-state">
                   <h2>👋 Welcome to Stock Market Simulator</h2>
                   <p>Configure your simulation parameters on the left and click "Run Simulation" to get started.</p>

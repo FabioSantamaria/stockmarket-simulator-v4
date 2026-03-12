@@ -9,9 +9,10 @@ const api = axios.create({
 
 export const simulatorAPI = {
   simulate: (params) => api.post('/simulate', params),
-  forecast: (params, horizonYears = 10, simulations = 1000, compareDividends = false) =>
+  forecast: (params, horizonYears = 10, simulations = 1000, lookbackYears = 10, compareDividends = false) =>
     api.post('/forecast', params, {
-      params: { horizon_years: horizonYears, simulations, compare_dividends: compareDividends },
+      timeout: 600000, // 10 minutes for Monte Carlo forecasts
+      params: { horizon_years: horizonYears, simulations, lookback_years: lookbackYears, compare_dividends: compareDividends },
     }),
   getTickers: () => api.get('/tickers'),
   searchTickers: (query) => api.get('/search-tickers', { params: { query } }),

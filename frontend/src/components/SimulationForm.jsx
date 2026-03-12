@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, DollarSign, TrendingUp, BarChart3, Search, X } from 'lucide-react';
+import { Calendar, DollarSign, TrendingUp, BarChart3, Search, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { simulatorAPI } from '../api/client';
 
-function SimulationForm({ onSimulate, onForecast, loading }) {
+function SimulationForm({ onSimulate, loading }) {
+  const [simulationMode, setSimulationMode] = useState('backtest'); // 'backtest' or 'montecarlo'
   const [formData, setFormData] = useState({
     tickers: ['SPY', 'QQQ', 'DIA'],
     start_date: '2010-01-01',
@@ -10,17 +11,28 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
     initial_investment: 10000,
     monthly_contribution: 0,
     reinvest_dividends: true,
-    inflation_adjusted: true,
+  });
+
+  // Update start date when mode changes
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setFormData(prev => ({
+      ...prev,
+      start_date: simulationMode === 'backtest' ? '2010-01-01' : today,
+      end_date: simulationMode === 'backtest' ? '2025-12-01' : today
+    }));
+  }, [simulationMode]);
+
+  const [monteCarloParams, setMonteCarloParams] = useState({
+    horizon_years: 10,
+    simulations: 1000,
+    lookback_years: 10,
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
-  const [forecastParams, setForecastParams] = useState({
-    horizon_years: 10,
-    simulations: 1000,
-  });
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -63,12 +75,17 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
     }));
   };
 
-  const handleForecastChange = (e) => {
+  const handleMonteCarloChange = (e) => {
     const { name, value } = e.target;
-    setForecastParams((prev) => ({
+    setMonteCarloParams((prev) => ({
       ...prev,
       [name]: parseInt(value),
     }));
+  };
+
+  const handleModeChange = (e) => {
+    const newMode = e.target.value;
+    setSimulationMode(newMode);
   };
 
   const handleSubmit = (e) => {
@@ -77,17 +94,37 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
       alert('Please select at least one ticker');
       return;
     }
-    onSimulate(formData);
-  };
-
-  const handleForecast = (e) => {
-    e.preventDefault();
-    onForecast(formData, forecastParams.horizon_years, forecastParams.simulations);
+    
+    // Validate date range for Monte Carlo
+    if (simulationMode === 'montecarlo' && formData.start_date > formData.end_date) {
+      alert('Start date cannot be after end date for Monte Carlo simulation');
+      return;
+    }
+    
+    if (simulationMode === 'backtest') {
+      onSimulate('backtest', formData);
+    } else {
+      onSimulate('montecarlo', formData, monteCarloParams.horizon_years, monteCarloParams.simulations, monteCarloParams.lookback_years);
+    }
   };
 
   return (
     <form className="simulation-form">
       <h2>Simulation Parameters</h2>
+
+      {/* Simulation Mode Selector */}
+      <div className="form-section">
+        <label className="form-label">Simulation Mode</label>
+        <select
+          value={simulationMode}
+          onChange={handleModeChange}
+          disabled={loading}
+          className="form-input"
+        >
+          <option value="backtest">Run Backtest Simulation</option>
+          <option value="montecarlo">Run Monte Carlo Forecast</option>
+        </select>
+      </div>
 
       {/* Search Bar */}
       <div className="form-section">
@@ -148,32 +185,67 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
 
       {/* Date Range Section */}
       <div className="form-section">
-        <div className="form-group">
-          <label className="form-label">
-            <Calendar size={16} /> Start Date
-          </label>
-          <input
-            type="date"
-            name="start_date"
-            value={formData.start_date}
-            onChange={handleInputChange}
-            disabled={loading}
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">
-            <Calendar size={16} /> End Date
-          </label>
-          <input
-            type="date"
-            name="end_date"
-            value={formData.end_date}
-            onChange={handleInputChange}
-            disabled={loading}
-            className="form-input"
-          />
-        </div>
+        {simulationMode === 'backtest' ? (
+          <>
+            <div className="form-group">
+              <label className="form-label">
+                <Calendar size={16} /> Start Date
+              </label>
+              <input
+                type="date"
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleInputChange}
+                disabled={loading}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                <Calendar size={16} /> End Date
+              </label>
+              <input
+                type="date"
+                name="end_date"
+                value={formData.end_date}
+                onChange={handleInputChange}
+                disabled={loading}
+                className="form-input"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="form-group">
+              <label className="form-label">
+                <Calendar size={16} /> Start Date
+              </label>
+              <input
+                type="date"
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleInputChange}
+                disabled={loading}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                <Calendar size={16} /> Horizon (Years)
+              </label>
+              <input
+                type="number"
+                name="horizon_years"
+                value={monteCarloParams.horizon_years}
+                onChange={handleMonteCarloChange}
+                min="1"
+                max="50"
+                disabled={loading}
+                className="form-input"
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Investment Section */}
@@ -222,9 +294,48 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
           />
           <span>Reinvest Dividends</span>
         </label>
+        {simulationMode === 'montecarlo' && (
+          <>
+            <div className="form-group">
+              <label className="form-label">Number of Simulations</label>
+              <input
+                type="number"
+                name="simulations"
+                value={monteCarloParams.simulations}
+                onChange={handleMonteCarloChange}
+                min="100"
+                max="10000"
+                step="100"
+                disabled={loading}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Historical Lookback (Years)</label>
+              <input
+                type="number"
+                name="lookback_years"
+                value={monteCarloParams.lookback_years}
+                onChange={handleMonteCarloChange}
+                min="1"
+                max="50"
+                disabled={loading}
+                className="form-input"
+              />
+              <small className="form-help-text">
+                Years of historical data to use for calculating Monte Carlo returns
+              </small>
+            </div>
+            <div className="time-estimate">
+              <strong>⏱️ Estimated Time:</strong> {Math.round(monteCarloParams.simulations * monteCarloParams.lookback_years * 0.01)} seconds
+              <br />
+              <small>Based on {monteCarloParams.simulations} simulations using {monteCarloParams.lookback_years} years of data</small>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Backtest Simulation Button */}
+      {/* Submit Button */}
       <div className="form-section">
         <button
           type="button"
@@ -232,51 +343,8 @@ function SimulationForm({ onSimulate, onForecast, loading }) {
           disabled={loading || formData.tickers.length === 0}
           className="btn btn-primary"
         >
-          {loading ? 'Running...' : 'Run Backtest Simulation'}
-        </button>
-      </div>
-
-      {/* Forecast Parameters */}
-      <div className="form-section">
-        <h3>Monte Carlo Forecast</h3>
-        <div className="form-group">
-          <label className="form-label">Horizon (Years)</label>
-          <input
-            type="number"
-            name="horizon_years"
-            value={forecastParams.horizon_years}
-            onChange={handleForecastChange}
-            min="1"
-            max="50"
-            disabled={loading}
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Simulations</label>
-          <input
-            type="number"
-            name="simulations"
-            value={forecastParams.simulations}
-            onChange={handleForecastChange}
-            min="100"
-            max="10000"
-            step="100"
-            disabled={loading}
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      {/* Buttons */}
-      <div className="form-buttons">
-        <button
-          type="button"
-          onClick={handleForecast}
-          disabled={loading || formData.tickers.length === 0}
-          className="btn btn-secondary"
-        >
-          {loading ? 'Running...' : 'Generate Forecast'}
+          {loading ? 'Running...' : 
+           simulationMode === 'backtest' ? 'Run Backtest Simulation' : 'Run Monte Carlo Forecast'}
         </button>
       </div>
     </form>

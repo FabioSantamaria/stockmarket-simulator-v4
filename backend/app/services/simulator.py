@@ -127,9 +127,15 @@ class SimulationService:
         horizon_years: int = 10,
         simulations: int = 1000,
         inflation_adjusted: bool = False,
-        cpi_data: Optional[pd.Series] = None
+        cpi_data: Optional[pd.Series] = None,
+        lookback_years: Optional[int] = None
     ) -> Tuple[list, list, list]:
         """Run Monte Carlo simulation"""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Monte Carlo input data shape: {df.shape}")
+        logger.info(f"Monte Carlo columns: {df.columns.tolist()}")
+        
         df_copy = df.copy()
         
         if inflation_adjusted and cpi_data is not None:
@@ -146,9 +152,19 @@ class SimulationService:
         else:
             df_copy['value_real'] = df_copy['value']
         
-        df_copy['return'] = df_copy['value_real'].pct_change().fillna(0)
-        mu = df_copy['return'].mean()
-        sigma = df_copy['return'].std()
+        # Calculate returns based on price changes, not portfolio value
+        # This gives us the actual market returns excluding contributions
+        # Handle both 'close' and 'Close' column names
+        close_col = 'close' if 'close' in df_copy.columns else 'Close'
+        if close_col not in df_copy.columns:
+            logger.error(f"Missing '{close_col}' column in Monte Carlo data")
+            raise ValueError(f"Missing '{close_col}' column in Monte Carlo data")
+            
+        df_copy['price_return'] = df_copy[close_col].pct_change().fillna(0)
+        mu = df_copy['price_return'].mean()
+        sigma = df_copy['price_return'].std()
+        
+        logger.info(f"Monte Carlo returns - mu: {mu}, sigma: {sigma}")
         
         # Start all simulations from same baseline of 1.0 (normalized)
         baseline = 1.0

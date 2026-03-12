@@ -5,7 +5,7 @@ import ForecastChart from './ForecastChart';
 import { simulatorAPI } from '../api/client';
 
 function ResultsDisplay({ results, forecasts, onForecast }) {
-  const [activeTab, setActiveTab] = useState('nominal');
+  const [activeTab, setActiveTab] = useState(results ? 'nominal' : (forecasts ? 'forecast' : 'nominal'));
   const [cpiData, setCpiData] = useState({});
   const [fxData, setFxData] = useState(null);
   const [priceData, setPriceData] = useState({});
@@ -74,15 +74,18 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
     }
   };
 
-  if (!results) return null;
-
-  const { results: simulationResults } = results;
-  const tickers = Object.keys(simulationResults);
+  // Handle case where we only have forecasts (Monte Carlo mode)
+  if (!results && !forecasts) return null;
+  
+  const { results: simulationResults } = results || {};
+  const tickers = simulationResults ? Object.keys(simulationResults) : (forecasts ? Object.keys(forecasts.forecasts) : []);
 
   // Group tickers by currency dynamically
   const tickersByCurrency = {};
   tickers.forEach(ticker => {
-    const currency = simulationResults[ticker].currency || 'USD';
+    const currency = simulationResults ? 
+      (simulationResults[ticker].currency || 'USD') : 
+      'USD'; // Default to USD for forecasts
     if (!tickersByCurrency[currency]) {
       tickersByCurrency[currency] = [];
     }
@@ -92,6 +95,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
   // Helper function to create plot data
   const createPlotData = (tickerList, valueKey = 'value') => {
     return tickerList.map((ticker) => {
+      if (!simulationResults) return null; // Skip if no simulation results
       const data = simulationResults[ticker].timeSeries;
       return {
         x: data.map((d) => d.date),
@@ -100,7 +104,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
         type: 'scatter',
         mode: 'lines',
       };
-    });
+    }).filter(Boolean); // Filter out null entries
   };
 
   // Create plot data for each currency
@@ -329,6 +333,36 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
       {activeTab === 'forecast' && forecasts && (
         <div className="tab-content">
           <h2>Monte Carlo Forecast (Based on Real Returns)</h2>
+          
+          {/* Data Information Warning */}
+          {forecasts.data_info && (
+            <div className="data-info-warning" style={{
+              backgroundColor: '#fef3c7',
+              border: '1px solid #f59e0b',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '20px'
+            }}>
+              <h4 style={{ margin: '0 0 8px 0', color: '#92400e' }}>📊 Data Range Information</h4>
+              <div style={{ fontSize: '14px', color: '#78350f' }}>
+                <p style={{ margin: '4px 0' }}>
+                  <strong>Requested:</strong> {forecasts.data_info.fetch_range.requested_lookback_years} years of historical data
+                </p>
+                <p style={{ margin: '4px 0' }}>
+                  <strong>Actually Used:</strong> Latest {forecasts.data_info.fetch_range.requested_lookback_years} years from available data
+                </p>
+                <p style={{ margin: '4px 0' }}>
+                  <strong>Data Retrieved:</strong> {forecasts.data_info.fetch_range.start} to {forecasts.data_info.fetch_range.end}
+                </p>
+                {Object.entries(forecasts.data_info.actual_date_ranges).map(([ticker, range]) => (
+                  <p key={ticker} style={{ margin: '4px 0' }}>
+                    <strong>{ticker}:</strong> {range.start} to {range.end} ({range.total_rows} data points)
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <ForecastChart forecasts={forecasts.forecasts} results={simulationResults} />
         </div>
       )}
