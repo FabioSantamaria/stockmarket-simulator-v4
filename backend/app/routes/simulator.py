@@ -19,6 +19,10 @@ async def simulate(params: SimulationParams) -> SimulationResponse:
     
     Returns historical portfolio value, metrics, and analysis.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Starting simulation for {params.tickers} from {params.start_date} to {params.end_date}")
+    
     try:
         # Fetch market data for all tickers
         market_data = {}
@@ -130,6 +134,7 @@ async def forecast(
     
     start_time = time.time()
     logger.info(f"Starting Monte Carlo forecast for {params.tickers} with {simulations} simulations, {horizon_years} year horizon, {lookback_years} year lookback")
+    logger.info(f"Params received: {params}")
     
     try:
         # Calculate data fetch range - get historical data instead of future data
@@ -176,6 +181,16 @@ async def forecast(
             if df.empty:
                 logger.warning(f"No data available for {ticker}")
                 continue
+            
+            # Handle both 'date' and 'Date' column names
+            date_col = 'date' if 'date' in df.columns else 'Date'
+            if date_col not in df.columns:
+                logger.error(f"No date column found for {ticker}. Columns: {df.columns.tolist()}")
+                continue
+                
+            # Rename to standard 'date' if needed
+            if date_col != 'date':
+                df = df.rename(columns={date_col: 'date'})
                 
             # Get the actual date range of available data
             actual_start = df['date'].min()
@@ -212,7 +227,6 @@ async def forecast(
                 processed_data[ticker],
                 horizon_years=horizon_years,
                 simulations=simulations,
-                inflation_adjusted=False,
                 cpi_data=cpi_data.get(currency)
             )
             
@@ -229,7 +243,6 @@ async def forecast(
                     df_no_dividends,
                     horizon_years=horizon_years,
                     simulations=simulations,
-                    inflation_adjusted=False,
                     cpi_data=cpi_data.get(currency)
                 )
             
@@ -273,6 +286,9 @@ async def forecast(
         }
     
     except Exception as e:
+        import traceback
+        logger.error(f"Forecast failed with error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Forecast failed: {str(e)}")
 
 @router.get("/tickers")

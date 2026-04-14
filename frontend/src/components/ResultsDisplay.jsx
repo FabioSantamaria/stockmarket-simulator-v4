@@ -2,14 +2,22 @@ import React, { useState, useEffect } from 'react';
 import PlotChart from './PlotChart';
 import MetricsTable from './MetricsTable';
 import ForecastChart from './ForecastChart';
+import ForecastMetricsTable from './ForecastMetricsTable';
 import { simulatorAPI } from '../api/client';
 
 function ResultsDisplay({ results, forecasts, onForecast }) {
-  const [activeTab, setActiveTab] = useState(results ? 'nominal' : (forecasts ? 'forecast' : 'nominal'));
+  const [activeTab, setActiveTab] = useState(
+    results ? 'nominal' : 
+    (forecasts && !results) ? 'real' : 
+    (forecasts ? 'forecast' : 'nominal')
+  );
   const [cpiData, setCpiData] = useState({});
   const [fxData, setFxData] = useState(null);
   const [priceData, setPriceData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  console.log('ResultsDisplay render:', { results, forecasts, activeTab });
 
   useEffect(() => {
     if (results) {
@@ -18,7 +26,9 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
   }, [results]);
 
   const fetchAdditionalData = async () => {
+    console.log('Fetching additional data...');
     setLoading(true);
+    setError(null);
     const params = results.parameters;
     
     try {
@@ -29,12 +39,16 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
       });
       
       const uniqueCurrencies = [...new Set(Object.values(tickerCurrencies))];
+      console.log('Unique currencies:', uniqueCurrencies);
       
       // Fetch CPI data for all detected currencies
       const cpiPromises = uniqueCurrencies.map(currency => 
         simulatorAPI.getCPIData(currency, params.start_date, params.end_date)
           .then(response => ({ currency, data: response.data?.data || [] }))
-          .catch(() => ({ currency, data: [] }))
+          .catch(err => {
+            console.warn(`Failed to fetch CPI data for ${currency}:`, err);
+            return { currency, data: [] };
+          })
       );
       
       // Fetch FX data if we have multiple currencies
@@ -54,6 +68,7 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
         cpiDataMap[currency] = data;
       });
       
+      console.log('CPI data fetched:', cpiDataMap);
       setCpiData(cpiDataMap);
       setFxData(fxData);
 
@@ -67,18 +82,28 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
         }));
       });
       setPriceData(prices);
+      console.log('Price data extracted:', prices);
     } catch (err) {
       console.error('Failed to fetch additional data:', err);
+      setError('Failed to fetch additional data');
     } finally {
       setLoading(false);
     }
   };
 
   // Handle case where we only have forecasts (Monte Carlo mode)
-  if (!results && !forecasts) return null;
+  if (!results && !forecasts) {
+    console.log('No results or forecasts to display');
+    return null;
+  }
+  
+  // For forecast-only mode, only show Real Growth and Metrics (Real) tabs
+  const isForecastOnly = !results && forecasts;
+  console.log('Is forecast only:', isForecastOnly);
   
   const { results: simulationResults } = results || {};
   const tickers = simulationResults ? Object.keys(simulationResults) : (forecasts ? Object.keys(forecasts.forecasts) : []);
+  console.log('Tickers:', tickers);
 
   // Group tickers by currency dynamically
   const tickersByCurrency = {};
@@ -157,36 +182,56 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
   return (
     <div className="results-display">
       <div className="tabs">
-        <button
-          className={`tab ${activeTab === 'nominal' ? 'active' : ''}`}
-          onClick={() => setActiveTab('nominal')}
-        >
-          Nominal Growth
-        </button>
-        <button
-          className={`tab ${activeTab === 'real' ? 'active' : ''}`}
-          onClick={() => setActiveTab('real')}
-        >
-          Real Growth
-        </button>
-        <button
-          className={`tab ${activeTab === 'metrics-nominal' ? 'active' : ''}`}
-          onClick={() => setActiveTab('metrics-nominal')}
-        >
-          Metrics (Nominal)
-        </button>
-        <button
-          className={`tab ${activeTab === 'metrics-real' ? 'active' : ''}`}
-          onClick={() => setActiveTab('metrics-real')}
-        >
-          Metrics (Real)
-        </button>
-        <button
-          className={`tab ${activeTab === 'macro' ? 'active' : ''}`}
-          onClick={() => setActiveTab('macro')}
-        >
-          Macro Data
-        </button>
+        {!isForecastOnly && (
+          <>
+            <button
+              className={`tab ${activeTab === 'nominal' ? 'active' : ''}`}
+              onClick={() => setActiveTab('nominal')}
+            >
+              Nominal Growth
+            </button>
+            <button
+              className={`tab ${activeTab === 'real' ? 'active' : ''}`}
+              onClick={() => setActiveTab('real')}
+            >
+              Real Growth
+            </button>
+            <button
+              className={`tab ${activeTab === 'metrics-nominal' ? 'active' : ''}`}
+              onClick={() => setActiveTab('metrics-nominal')}
+            >
+              Metrics (Nominal)
+            </button>
+            <button
+              className={`tab ${activeTab === 'metrics-real' ? 'active' : ''}`}
+              onClick={() => setActiveTab('metrics-real')}
+            >
+              Metrics (Real)
+            </button>
+            <button
+              className={`tab ${activeTab === 'macro' ? 'active' : ''}`}
+              onClick={() => setActiveTab('macro')}
+            >
+              Macro Data
+            </button>
+          </>
+        )}
+        {isForecastOnly && (
+          <>
+            <button
+              className={`tab ${activeTab === 'real' ? 'active' : ''}`}
+              onClick={() => setActiveTab('real')}
+            >
+              Real Growth
+            </button>
+            <button
+              className={`tab ${activeTab === 'metrics-real' ? 'active' : ''}`}
+              onClick={() => setActiveTab('metrics-real')}
+            >
+              Metrics (Real)
+            </button>
+          </>
+        )}
         {forecasts && (
           <button
             className={`tab ${activeTab === 'forecast' ? 'active' : ''}`}
@@ -222,24 +267,34 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
 
       {activeTab === 'real' && (
         <div className="tab-content">
-          <h2>Real (Inflation-Adjusted) Growth</h2>
-          <p className="chart-description">Portfolio values adjusted for inflation using local CPI and including dividend accumulation</p>
-          
-          {Object.keys(tickersByCurrency).map(currency => (
-            <div key={currency} className="currency-section">
-              <h3>{currency} Tickers ({currency} CPI-Adjusted)</h3>
-              <PlotChart
-                data={[...realPlotData[currency], ...(investedData && tickersByCurrency[currency].includes(firstTicker) ? [investedData] : [])]}
-                layout={{
-                  title: `Real Portfolio Values (${currency}, CPI-Adjusted)`,
-                  xaxis: { title: 'Date' },
-                  yaxis: { title: `Value (${currency}, Inflation-Adjusted)` },
-                  hovermode: 'x unified',
-                }}
-                config={{ responsive: true }}
-              />
-            </div>
-          ))}
+          {isForecastOnly ? (
+            <>
+              <h2>Real Growth Forecast</h2>
+              <p className="chart-description">Monte Carlo simulation showing projected growth with percentiles based on historical real returns</p>
+              <ForecastChart forecasts={forecasts.forecasts} results={simulationResults} />
+            </>
+          ) : (
+            <>
+              <h2>Real (Inflation-Adjusted) Growth</h2>
+              <p className="chart-description">Portfolio values adjusted for inflation using local CPI and including dividend accumulation</p>
+              
+              {Object.keys(tickersByCurrency).map(currency => (
+                <div key={currency} className="currency-section">
+                  <h3>{currency} Tickers ({currency} CPI-Adjusted)</h3>
+                  <PlotChart
+                    data={[...realPlotData[currency], ...(investedData && tickersByCurrency[currency].includes(firstTicker) ? [investedData] : [])]}
+                    layout={{
+                      title: `Real Portfolio Values (${currency}, CPI-Adjusted)`,
+                      xaxis: { title: 'Date' },
+                      yaxis: { title: `Value (${currency}, Inflation-Adjusted)` },
+                      hovermode: 'x unified',
+                    }}
+                    config={{ responsive: true }}
+                  />
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 
@@ -258,14 +313,23 @@ function ResultsDisplay({ results, forecasts, onForecast }) {
 
       {activeTab === 'metrics-real' && (
         <div className="tab-content">
-          <h2>Investment Metrics (Inflation-Adjusted)</h2>
-          
-          {Object.keys(tickersByCurrency).map(currency => (
-            <div key={currency} className="metrics-section">
-              <h3>{currency} Tickers (Real Returns)</h3>
-              <MetricsTable results={simulationResults} tickers={tickersByCurrency[currency]} real={true} />
-            </div>
-          ))}
+          {isForecastOnly ? (
+            <>
+              <h2>Forecast Metrics (Real)</h2>
+              <p className="chart-description">Monte Carlo simulation results showing projected growth with percentiles</p>
+              <ForecastMetricsTable forecasts={forecasts.forecasts} tickers={tickers} />
+            </>
+          ) : (
+            <>
+              <h2>Investment Metrics (Inflation-Adjusted)</h2>
+              {Object.keys(tickersByCurrency).map(currency => (
+                <div key={currency} className="metrics-section">
+                  <h3>{currency} Tickers (Real Returns)</h3>
+                  <MetricsTable results={simulationResults} tickers={tickersByCurrency[currency]} real={true} />
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 

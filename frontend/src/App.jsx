@@ -7,6 +7,17 @@ import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
 import './styles/main.css';
 
+// Add global error handler
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+
+console.log('App.jsx loaded successfully');
+
 function App() {
   const [results, setResults] = useState(null);
   const [forecasts, setForecasts] = useState(null);
@@ -14,6 +25,7 @@ function App() {
   const [error, setError] = useState(null);
 
   const handleSimulate = async (mode, params, horizonYears, simulations, lookbackYears) => {
+    console.log('Starting simulation:', { mode, params, horizonYears, simulations, lookbackYears });
     setLoading(true);
     setError(null);
     setResults(null);
@@ -21,17 +33,25 @@ function App() {
 
     try {
       if (mode === 'backtest') {
+        console.log('Starting backtest simulation...');
         const response = await simulatorAPI.simulate(params);
+        console.log('Backtest response:', response);
         setResults(response.data);
       } else {
         console.log(`Starting Monte Carlo with ${simulations} simulations, ${horizonYears} year horizon, ${lookbackYears} year lookback`);
         const response = await simulatorAPI.forecast(params, horizonYears, simulations, lookbackYears, true);
         console.log(`Monte Carlo completed in ${response.data.execution_time_seconds} seconds`);
+        console.log('Monte Carlo response:', response);
         setForecasts(response.data);
       }
     } catch (err) {
+      console.error('Simulation error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        config: err.config
+      });
       setError(err.response?.data?.detail || err.message || 'An error occurred during simulation');
-      console.error('Simulation error:', err);
     } finally {
       setLoading(false);
     }

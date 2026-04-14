@@ -126,7 +126,6 @@ class SimulationService:
         df: pd.DataFrame,
         horizon_years: int = 10,
         simulations: int = 1000,
-        inflation_adjusted: bool = False,
         cpi_data: Optional[pd.Series] = None,
         lookback_years: Optional[int] = None
     ) -> Tuple[list, list, list]:
@@ -138,19 +137,27 @@ class SimulationService:
         
         df_copy = df.copy()
         
-        if inflation_adjusted and cpi_data is not None:
-            # Calculate real returns
-            start_date = df_copy.iloc[0]['date']
-            end_date = df_copy.iloc[-1]['date']
-            cpi_subset = cpi_data.loc[start_date:end_date]
-            if len(cpi_subset) > 0:
-                cpi_start = cpi_subset.iloc[0]
-                cpi_filled = cpi_subset.reindex(df_copy['date'], method='ffill')
-                df_copy['value_real'] = df_copy['value'] * (cpi_start / cpi_filled.values)
+        # Handle both 'date' and 'Date' column names
+        date_col = 'date' if 'date' in df_copy.columns else 'Date'
+        if date_col not in df_copy.columns:
+            logger.error(f"Missing date column. Available columns: {df_copy.columns.tolist()}")
+            raise ValueError(f"Missing date column in Monte Carlo data")
+        
+        # Rename to standard 'date' if needed
+        if date_col != 'date':
+            df_copy = df_copy.rename(columns={date_col: 'date'})
+        
+        # Handle 'value' column - might be 'Close' or 'close' if value doesn't exist
+        if 'value' not in df_copy.columns:
+            if 'Close' in df_copy.columns:
+                df_copy['value'] = df_copy['Close']
+            elif 'close' in df_copy.columns:
+                df_copy['value'] = df_copy['close']
             else:
-                df_copy['value_real'] = df_copy['value']
-        else:
-            df_copy['value_real'] = df_copy['value']
+                logger.error(f"Missing value column. Available columns: {df_copy.columns.tolist()}")
+                raise ValueError(f"Missing value/close column in Monte Carlo data")
+        
+        df_copy['value_real'] = df_copy['value']
         
         # Calculate returns based on price changes, not portfolio value
         # This gives us the actual market returns excluding contributions
